@@ -204,64 +204,66 @@ unsigned int Fetch ( int addr) {
 
 /* Decode instr, returning decoded instruction. */
 void Decode ( unsigned int instr, DecodedInstr* d, RegVals* rVals) {
-    if(instr == 0)                                 //invalid instruction
+    if(instr == 0)                              //invalid instruction
         exit(0);
     unsigned int temp;
     temp = instr;
+    temp = temp>>26;
+    d->op = temp;                               //op
+    temp = instr<<6;
+
+    if(d->op == 0){
+        d->type = R;                            //R instruction
+
+        temp = temp>>27;
+        d->regs.r.rs = temp;
+        rVals->R_rs = mips.registers[temp];     //rs
+
+        temp = instr<<11;
+        temp =temp>>27;
+        d->regs.r.rt = temp;
+        rVals->R_rt = mips.registers[temp];     //rt
+
+        temp = instr<<16;
+        temp = temp>>27;
+        d->regs.r.rd = temp;
+        rVals->R_rd = mips.registers[temp];     //rd
+
+        temp = instr<<21;
+        temp = temp>>27;
+        d->regs.r.shamt = temp;                 //shamt
+
+        temp = instr<<26;
         temp = temp>>26;
-        d->op = temp;                               //op
-        temp = instr<<6;
+        d->regs.r.funct = temp;                 //funct
 
-        if(d->op == 0){
-            d->type = R;                            //R instruction
+    }
 
-            temp = temp>>27;
-            d->regs.r.rs = temp;
-            rVals->R_rs = mips.registers[temp];     //rs
+    else if(d->op == j || d->op == jal){
+        d->type = J;                            //J instruction
+        temp = temp>>4;
+        d->regs.j.target = temp;
+    }
 
-            temp = instr<<11;
-            temp =temp>>27;
-            d->regs.r.rt = temp;
-            rVals->R_rt = mips.registers[temp];     //rt
+    else if(d->op == addiu || d->op == andi || d->op == beq || d->op == bne || d->op == lui || d->op == lw || d->op == ori || d->op == sw){
+        d->type = I;                            //I instruction
+        temp = temp>>27;
+        d->regs.i.rs = temp;
+        rVals->R_rs = mips.registers[temp];     //rs
 
-            temp = instr<<16;
-            temp = temp>>27;
-            d->regs.r.rd = temp;
-            rVals->R_rd = mips.registers[temp];     //rd
+        temp = instr<<11;
+        temp = temp>>27;
+        d->regs.i.rt = temp;
+        rVals->R_rt = mips.registers[temp];     //rt
 
-            temp = instr<<21;
-            temp = temp>>27;
-            d->regs.r.shamt = temp;                 //shamt
-
-            temp = instr<<26;
-            temp = temp>>26;
-            d->regs.r.funct = temp;                 //funct
-
-        }
-
-        else if(d->op == j || d->op == jal){
-            d->type = J;                            //J instruction
-            temp = temp>>4;
-            d->regs.j.target = temp;
-        }
-
-        else if(d->op == addiu || d->op == andi || d->op == beq || d->op == bne || d->op == lui || d->op == lw || d->op == ori || d->op == sw){
-            d->type = I;                            //I instruction
-            temp = temp>>27;
-            d->regs.i.rs = temp;
-            rVals->R_rs = mips.registers[temp];     //rs
-
-            temp = instr<<11;
-            temp = temp>>27;
-            d->regs.i.rt = temp;
-            rVals->R_rt = mips.registers[temp];     //rt
-
-            temp = instr<<16;
-            temp = temp>>16;
-            d->regs.i.addr_or_immed = temp;         //imm
-        }
-        else
-            exit(0);                                //if none of these exit   
+        temp = instr<<16;
+        temp = temp>>16;
+        if((temp & 0x00008000) > 0)
+		temp =  temp | 0xffff0000;
+        d->regs.i.addr_or_immed = temp;         //imm
+    }
+    else
+        exit(0);                                //if none of these exit   
 }
 
 /*
@@ -391,13 +393,13 @@ int Execute ( DecodedInstr* d, RegVals* rVals) {
         }
         else if(d->op == beq){
             if((rVals->R_rs - rVals->R_rt) == 0) //they are equal
-                return(d->regs.i.addr_or_immed);
+                return(d->regs.i.addr_or_immed<<2);
             else
                 return 0;
         }
         else if(d->op == bne){
             if((rVals->R_rs - rVals->R_rt) != 0) //they are not equal
-                return(d->regs.i.addr_or_immed);
+                return(d->regs.i.addr_or_immed<<2);
             else
                 return 0;
         }
